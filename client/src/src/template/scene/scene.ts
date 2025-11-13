@@ -1,10 +1,10 @@
 import * as api from '../noodle/apis'
+import DefaultTemplate from '../default'
+import { INodeTemplate } from '../itemplate'
 import DefaultPageContext from "../context/default"
 import ContextStorage from "../context/contextStorage"
 import { IResourceNode, IResourceTree } from "./iscene"
 import { TEMPLATE_REGISTRY } from '@/registry/templateRegistry'
-import DefaultTemplate from '../default'
-import { INodeTemplate } from '../itemplate'
 
 export class ResourceNode implements IResourceNode {
     key: string
@@ -87,7 +87,7 @@ export class ResourceTree implements IResourceTree {
     async alignNodeInfo(node: IResourceNode, force: boolean = false): Promise<void> {
         if (node.aligned && !force) return
 
-        const meta = await api.scene.getTreeNodeInfo({ node_key: node.key })
+        const meta = await api.node.getNodeInfo({ nodeKey: node.key })
 
         const oldChildrenMap = node.children
         node.children = new Map()
@@ -126,6 +126,18 @@ export class ResourceTree implements IResourceTree {
         this.updateCallbacks.forEach(callback => callback())
     }
 
+    async stopEditingNode(node: IResourceNode): Promise<void> {
+        if (!this.editingNodeIds.has(node.id)) return
+
+        this.editingNodeIds.delete(node.id)
+
+        const _node = node as ResourceNode
+
+        // TODO: Stop Node Editing State
+
+        this.notifyDomUpdate()
+    }
+
     async removeNode(node: IResourceNode): Promise<void> {
         const parent = node.parent as ResourceNode
         parent.children.delete(node.id)
@@ -144,7 +156,7 @@ export class ResourceTree implements IResourceTree {
         try {
             const tree = new ResourceTree()
 
-            const rootNodeMeta = await api.scene.getTreeNodeInfo({ node_key: '_' })
+            const rootNodeMeta = await api.node.getNodeInfo({ nodeKey: '_' })
             const rootNode = new ResourceNode(tree, rootNodeMeta.node_key, null, TEMPLATE_REGISTRY[rootNodeMeta.template_name])
 
             await tree.setRoot(rootNode)

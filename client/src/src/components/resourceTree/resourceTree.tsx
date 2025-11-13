@@ -10,6 +10,7 @@ import {
     RefreshCcw,
     MapPin,
     Square,
+    Loader2,
 } from 'lucide-react'
 import { cn } from '@/utils/utils'
 import { Separator } from "@/components/ui/separator"
@@ -68,6 +69,7 @@ interface NodeData {
     label: string
     icon: 'MapPin' | 'Square'
     sourceTitle: string
+    status: 'ready' | 'pending'
 }
 
 const TreeRenderer = ({ title }: TreeRendererProps) => {
@@ -76,17 +78,17 @@ const TreeRenderer = ({ title }: TreeRendererProps) => {
 
     const [isSelected, setIsSelected] = useState(false)
     const [nodes, setNodes] = useState<NodeData[]>(() => {
-        // 初始化节点数据
+
         if (title === 'WorkSpace') {
             return [
-                { id: 'ws-1', label: '111', icon: 'MapPin', sourceTitle: 'WorkSpace' },
-                { id: 'ws-2', label: '222', icon: 'MapPin', sourceTitle: 'WorkSpace' }
+                { id: 'ws-1', label: '111', icon: 'MapPin', sourceTitle: 'WorkSpace', status: 'ready' },
+                { id: 'ws-2', label: '222', icon: 'MapPin', sourceTitle: 'WorkSpace', status: 'ready' }
             ]
         } else {
             return [
-                { id: 'pub-1', label: 'schema lead', icon: 'MapPin', sourceTitle: 'Public' },
-                { id: 'pub-2', label: 'test', icon: 'MapPin', sourceTitle: 'Public' },
-                { id: 'pub-3', label: 'patch lead', icon: 'Square', sourceTitle: 'Public' }
+                { id: 'pub-1', label: 'schema lead', icon: 'MapPin', sourceTitle: 'Public', status: 'ready' },
+                { id: 'pub-2', label: 'test', icon: 'MapPin', sourceTitle: 'Public', status: 'ready' },
+                { id: 'pub-3', label: 'patch lead', icon: 'Square', sourceTitle: 'Public', status: 'ready' }
             ]
         }
     })
@@ -130,38 +132,36 @@ const TreeRenderer = ({ title }: TreeRendererProps) => {
 
             const nodeData: NodeData = JSON.parse(nodeDataStr)
 
-            // 如果是从同一个 TreeRenderer 拖放，不处理
             if (nodeData.sourceTitle === title) {
                 return
             }
 
-            // 如果目标树中已存在同名节点，则不重复添加
             if (nodes.some(existing => existing.label === nodeData.label)) {
                 return
             }
 
-            // 触发 loading
-            const isLoading = store.get<{ on: Function, off: Function }>('isLoading')
-            if (isLoading) {
-                isLoading.on()
-            }
+            // const isLoading = store.get<{ on: Function, off: Function }>('isLoading')
+            // if (isLoading) {
+            //     isLoading.on()
+            // }
 
-            // 添加节点到目标 TreeRenderer（创建新节点，避免引用问题）
             const newNode: NodeData = {
                 id: `${title.toLowerCase()}-${Date.now()}`,
                 label: nodeData.label,
                 icon: nodeData.icon,
-                sourceTitle: title
+                sourceTitle: title,
+                status: 'pending'
             }
 
+            setNodes(prev => [...prev, newNode])
 
-            // 4秒后关闭 loading
             setTimeout(() => {
-                if (isLoading) {
-                    isLoading.off()
-                    setNodes(prev => [...prev, newNode])
-                    toast.success('Node added successfully')
-                }
+                setNodes(prev => prev.map(node => node.id === newNode.id ? { ...node, status: 'ready' } : node))
+                // if (isLoading) {
+                //     isLoading.off()
+                //     toast.success('Node added successfully')
+                // }
+                toast.success('Node added successfully')
             }, 4000)
 
         } catch (error) {
@@ -223,6 +223,7 @@ const TreeRenderer = ({ title }: TreeRendererProps) => {
                                 className={cn(
                                     'flex items-center py-0.5 px-2 hover:bg-gray-700 cursor-pointer text-sm w-full select-none',
                                     isSelected ? 'bg-gray-600 text-white' : 'text-gray-300',
+                                    node.status === 'pending' && 'bg-gray-800/80 text-gray-500 pointer-events-none'
                                 )}
                                 style={{ paddingLeft: `${depth * 16 + 2}px` }}
                                 onClick={handleNodeClick}
@@ -231,7 +232,11 @@ const TreeRenderer = ({ title }: TreeRendererProps) => {
                                 onDragStart={(e) => handleDragStart(e, node)}
                             >
                                 <div className='ml-2 flex'>
-                                    {renderIcon(node.icon)}
+                                    {node.status === 'pending' ? (
+                                        <Loader2 className='w-4 h-4 mr-2 ml-3 text-gray-400 animate-spin' />
+                                    ) : (
+                                        renderIcon(node.icon)
+                                    )}
                                 </div>
                                 <span>{node.label}</span>
                             </div>
